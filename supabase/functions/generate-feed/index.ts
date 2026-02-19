@@ -193,29 +193,40 @@ Deno.serve(async (req) => {
             item.link = href;
           }
         } else {
-          // If no link selector, get href attribute of the post container directly
-          let href = container.getAttribute('href') || '';
-          if (href && !href.startsWith('http')) {
-            try {
-              href = new URL(href, feed.source_url).href;
-            } catch { }
-          }
-          item.link = href;
-        }
+          // If no link selector, check if container itself is an anchor tag
+          if (container.tagName === 'A' || container.tagName === 'a') {
+            let href = container.getAttribute('href') || '';
+            if (href && !href.startsWith('http')) {
+              try {
+                href = new URL(href, feed.source_url).href;
+              } catch { }
+            }
+            item.link = href;
+          } else {
+            // Otherwise, get href attribute of the post container directly
+            let href = container.getAttribute('href') || '';
+            if (href && !href.startsWith('http')) {
+              try {
+                href = new URL(href, feed.source_url).href;
+              } catch { }
+            }
+            item.link = href;
 
-        // As a last resort, find the first <a> inside the container if still no link
-        if (!item.link) {
-          let href = '';
-          const firstAnchor = container.querySelector('a[href]');
-          if (firstAnchor) {
-            href = firstAnchor.getAttribute('href') || '';
+            // As a last resort, find the first <a> inside the container if still no link
+            if (!item.link) {
+              let href = '';
+              const firstAnchor = container.querySelector('a[href]');
+              if (firstAnchor) {
+                href = firstAnchor.getAttribute('href') || '';
+              }
+              if (href && !href.startsWith('http')) {
+                try {
+                  href = new URL(href, feed.source_url).href;
+                } catch { }
+              }
+              item.link = href;
+            }
           }
-          if (href && !href.startsWith('http')) {
-            try {
-              href = new URL(href, feed.source_url).href;
-            } catch { }
-          }
-          item.link = href;
         }
         if (selectors.image) {
           const el = container.querySelector(selectors.image);

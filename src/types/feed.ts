@@ -27,6 +27,6 @@ export const SELECTOR_STEPS: { key: SelectorStep; label: string; description: st
   { key: 'title', label: 'Title', description: 'Click the title of a post' },
   { key: 'description', label: 'Description', description: 'Click the description/summary text' },
   { key: 'date', label: 'Date', description: 'Click the date/timestamp' },
-  { key: 'link', label: 'Post Link', description: 'Click the link to the full post' },
+  { key: 'link', label: 'Post Link', description: 'Click the link inside the container, or leave empty if container is the link element' },
   { key: 'image', label: 'Image', description: 'Click the thumbnail/image' },
 ];

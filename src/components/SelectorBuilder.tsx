@@ -54,22 +54,70 @@ export function SelectorBuilder({ html, selectors, onSelectorsChange, sourceUrl 
     const doc = iframe.contentDocument;
     if (!doc) return;
 
+    // Check if HTML is a full document or just body content
+    const trimmedHtml = html.trim();
+    const isFullDocument = trimmedHtml.toLowerCase().startsWith('<!doctype') || trimmedHtml.toLowerCase().startsWith('<html');
+    
     // Write HTML with injected script
     doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <base href="${sourceUrl}" />
+    
+    if (isFullDocument) {
+      // If it's a full document, inject our styles into the head using string manipulation
+      // to preserve the original HTML exactly as-is
+      const selectorStyles = `
         <style>
           .__rss-hover { outline: 2px dashed #22c55e !important; outline-offset: 2px; cursor: crosshair !important; }
           .__rss-selected { outline: 2px solid #22c55e !important; outline-offset: 2px; background: rgba(34,197,94,0.08) !important; }
           .__rss-matched { outline: 1px solid #3b82f6 !important; background: rgba(59,130,246,0.06) !important; }
         </style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `);
+      `;
+      
+      // Try to inject styles before </head> or </body>, or at the start if no head tag
+      let modifiedHtml = trimmedHtml;
+      const headEndIndex = modifiedHtml.toLowerCase().indexOf('</head>');
+      if (headEndIndex !== -1) {
+        // Insert before </head>
+        modifiedHtml = modifiedHtml.slice(0, headEndIndex) + selectorStyles + modifiedHtml.slice(headEndIndex);
+      } else {
+        // No head tag, try to add base and styles before body
+        const bodyStartIndex = modifiedHtml.toLowerCase().indexOf('<body');
+        if (bodyStartIndex !== -1) {
+          const bodyTagEnd = modifiedHtml.indexOf('>', bodyStartIndex) + 1;
+          modifiedHtml = modifiedHtml.slice(0, bodyTagEnd) + selectorStyles + modifiedHtml.slice(bodyTagEnd);
+        } else {
+          // No body tag either, prepend styles
+          modifiedHtml = selectorStyles + modifiedHtml;
+        }
+      }
+      
+      // Add base tag if not present
+      if (!modifiedHtml.toLowerCase().includes('<base')) {
+        const headStartIndex = modifiedHtml.toLowerCase().indexOf('<head');
+        if (headStartIndex !== -1) {
+          const headTagEnd = modifiedHtml.indexOf('>', headStartIndex) + 1;
+          modifiedHtml = modifiedHtml.slice(0, headTagEnd) + `\n<base href="${sourceUrl}" />` + modifiedHtml.slice(headTagEnd);
+        }
+      }
+      
+      doc.write(modifiedHtml);
+    } else {
+      // If it's just body content, wrap it but preserve original structure
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <base href="${sourceUrl}" />
+          <style>
+            .__rss-hover { outline: 2px dashed #22c55e !important; outline-offset: 2px; cursor: crosshair !important; }
+            .__rss-selected { outline: 2px solid #22c55e !important; outline-offset: 2px; background: rgba(34,197,94,0.08) !important; }
+            .__rss-matched { outline: 1px solid #3b82f6 !important; background: rgba(59,130,246,0.06) !important; }
+          </style>
+        </head>
+        <body>${html}</body>
+        </html>
+      `);
+    }
+    
     doc.close();
 
     // Prevent navigation
@@ -164,12 +212,26 @@ export function SelectorBuilder({ html, selectors, onSelectorsChange, sourceUrl 
         for (const step of SELECTOR_STEPS) {
           if (step.key === 'container') continue;
           const sel = selectors[step.key];
-          if (!sel) continue;
-          const el = container.querySelector(sel);
-          if (el) {
-            if (step.key === 'link') row[step.key] = (el as HTMLAnchorElement).href || el.textContent?.trim() || '';
-            else if (step.key === 'image') row[step.key] = (el as HTMLImageElement).src || '';
-            else row[step.key] = el.textContent?.trim() || '';
+          
+          if (step.key === 'link') {
+            if (sel) {
+              const el = container.querySelector(sel);
+              if (el) {
+                row[step.key] = (el as HTMLAnchorElement).href || el.textContent?.trim() || '';
+              }
+            } else {
+              // If no link selector, check if container itself is an anchor tag
+              if (container.tagName === 'A' || container.tagName === 'a') {
+                row[step.key] = (container as HTMLAnchorElement).href || '';
+              }
+            }
+          } else {
+            if (!sel) continue;
+            const el = container.querySelector(sel);
+            if (el) {
+              if (step.key === 'image') row[step.key] = (el as HTMLImageElement).src || '';
+              else row[step.key] = el.textContent?.trim() || '';
+            }
           }
         }
         if (Object.keys(row).length > 0) results.push(row);
