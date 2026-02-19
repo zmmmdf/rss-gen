@@ -75,7 +75,7 @@ export function SelectorBuilder({ html, selectors, onSelectorsChange, sourceUrl 
     // Prevent navigation
     doc.addEventListener('click', (e) => e.preventDefault(), true);
     const links = doc.querySelectorAll('a');
-    links.forEach(a => { a.removeAttribute('href'); a.style.cursor = 'crosshair'; });
+    links.forEach(a => { a; a.style.cursor = 'crosshair'; });
   }, [html, sourceUrl]);
 
   // Setup hover/click handlers
