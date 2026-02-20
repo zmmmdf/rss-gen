@@ -142,14 +142,14 @@ Deno.serve(async (req) => {
     // Parse HTML and extract items using DOMParser (available in Deno)
     // Since Deno doesn't have DOMParser natively, we'll use regex-based extraction
     const selectors = feed.list_selectors as any;
-    
+
     // For server-side HTML parsing, use a simple approach
     // We'll use linkedom for parsing
     const { parseHTML } = await import('https://esm.sh/linkedom@0.16.8');
     const { document: doc } = parseHTML(html);
 
     const items: FeedItem[] = [];
-    
+
     if (selectors?.container) {
       const containers = doc.querySelectorAll(selectors.container);
       for (let i = 0; i < containers.length && i < 50; i++) {
@@ -178,13 +178,44 @@ Deno.serve(async (req) => {
           const el = container.querySelector(selectors.link);
           if (el) {
             let href = el.getAttribute('href') || '';
+            // If element itself doesn't have href, check if it IS an anchor or walk up to find one
+            if (!href) {
+              const anchor = el.tagName?.toUpperCase() === 'A' ? el : el.closest?.('a') || el.querySelector?.('a');
+              if (anchor) {
+                href = anchor.getAttribute('href') || '';
+              }
+            }
             if (href && !href.startsWith('http')) {
               try {
                 href = new URL(href, feed.source_url).href;
-              } catch {}
+              } catch { }
             }
             item.link = href;
           }
+        } else {
+          // If no link selector, get href attribute of the post container directly
+          let href = container.getAttribute('href') || '';
+          if (href && !href.startsWith('http')) {
+            try {
+              href = new URL(href, feed.source_url).href;
+            } catch { }
+          }
+          item.link = href;
+        }
+
+        // As a last resort, find the first <a> inside the container if still no link
+        if (!item.link) {
+          let href = '';
+          const firstAnchor = container.querySelector('a[href]');
+          if (firstAnchor) {
+            href = firstAnchor.getAttribute('href') || '';
+          }
+          if (href && !href.startsWith('http')) {
+            try {
+              href = new URL(href, feed.source_url).href;
+            } catch { }
+          }
+          item.link = href;
         }
         if (selectors.image) {
           const el = container.querySelector(selectors.image);
@@ -193,7 +224,7 @@ Deno.serve(async (req) => {
             if (src && !src.startsWith('http')) {
               try {
                 src = new URL(src, feed.source_url).href;
-              } catch {}
+              } catch { }
             }
             item.image = src;
           }

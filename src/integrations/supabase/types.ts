@@ -53,6 +53,39 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_selectors: {
+        Row: {
+          content_format: string
+          content_selector: string | null
+          created_at: string
+          domain: string
+          id: string
+          list_selectors: Json
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          content_format?: string
+          content_selector?: string | null
+          created_at?: string
+          domain: string
+          id?: string
+          list_selectors?: Json
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          content_format?: string
+          content_selector?: string | null
+          created_at?: string
+          domain?: string
+          id?: string
+          list_selectors?: Json
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
