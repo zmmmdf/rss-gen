@@ -12,6 +12,7 @@ import { getFeed, updateFeed } from "@/lib/api/feeds";
 import { firecrawlApi } from "@/lib/api/firecrawl";
 import { toast } from "sonner";
 import type { ListSelectors } from "@/types/feed";
+import { SELECTOR_STEPS } from "@/types/feed";
 import { SelectorBuilder } from "@/components/SelectorBuilder";
 import { ContentExtractor } from "@/components/ContentExtractor";
 import { getSavedSelectors, saveSelector, extractDomain, type SavedSelector } from "@/lib/api/saved-selectors";
@@ -202,33 +203,41 @@ export default function EditFeed() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/feed/${id}`)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-mono font-bold">
-            <span className="text-primary">$</span> edit-feed
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Step {step} of 2 — {step === 1 ? "Source & Selectors" : "Content Extraction"}
-          </p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/feed/${id}`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-mono font-bold">
+              <span className="text-primary">$</span> edit-feed
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Step {step} of 2 — {step === 1 ? "Source & Selectors" : "Content Extraction"}
+            </p>
+          </div>
         </div>
+        <Button
+          onClick={() => updateMutation.mutate()}
+          disabled={updateMutation.isPending}
+          className="font-mono glow-green"
+        >
+          {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+          Update Feed
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 mb-6">
         <div
-          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${
-            step === 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-          }`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${step === 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+            }`}
         >
           <Globe className="h-3 w-3" /> Source & Selectors
         </div>
         <ArrowRight className="h-4 w-4 text-muted-foreground" />
         <div
-          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${
-            step === 2 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-          }`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${step === 2 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+            }`}
         >
           <FileText className="h-3 w-3" /> Content
         </div>
@@ -299,10 +308,74 @@ export default function EditFeed() {
             </CardContent>
           </Card>
 
+          {/* Editable Selectors — always visible */}
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-mono flex items-center gap-2">
+                  <Save className="h-4 w-4 text-primary" />
+                  Selectors
+                </CardTitle>
+                {domain && (
+                  <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} className="font-mono text-xs">
+                    <Save className="h-3 w-3 mr-1" />
+                    Save Template
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {SELECTOR_STEPS.map((s) => (
+                <div key={s.key} className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground w-28 shrink-0">{s.label}:</span>
+                  <Input
+                    value={selectors[s.key] || ""}
+                    onChange={(e) => setSelectors({ ...selectors, [s.key]: e.target.value || undefined })}
+                    placeholder={s.description}
+                    className="font-mono text-xs bg-background h-8"
+                  />
+                </div>
+              ))}
+              <div className="pt-2 border-t border-border mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground w-28 shrink-0">Content:</span>
+                  <Input
+                    value={contentSelector}
+                    onChange={(e) => setContentSelector(e.target.value)}
+                    placeholder="CSS selector for full content..."
+                    className="font-mono text-xs bg-background h-8"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground w-28 shrink-0">Format:</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={contentFormat === "text" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setContentFormat("text")}
+                      className="font-mono text-xs h-7 px-2"
+                    >
+                      Text
+                    </Button>
+                    <Button
+                      variant={contentFormat === "html" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setContentFormat("html")}
+                      className="font-mono text-xs h-7 px-2"
+                    >
+                      HTML
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Page Preview + Visual Selector Builder */}
           {loadingPreview && !html && (
             <Card className="bg-card border-border overflow-hidden">
               <div className="bg-secondary px-3 py-2 border-b border-border">
-                <span className="text-xs font-mono text-muted-foreground">Preview</span>
+                <span className="text-xs font-mono text-muted-foreground">Loading page preview…</span>
               </div>
               <CardContent className="flex items-center justify-center py-16">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground font-mono text-sm">
@@ -314,29 +387,26 @@ export default function EditFeed() {
           )}
 
           {html && (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-muted-foreground">Configure selectors</span>
-                {domain && (
-                  <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} className="font-mono text-xs">
-                    <Save className="h-3 w-3 mr-1" />
-                    Save Selectors
-                  </Button>
-                )}
-              </div>
-              <SelectorBuilder html={html} selectors={selectors} onSelectorsChange={setSelectors} sourceUrl={url} />
-            </>
+            <SelectorBuilder html={html} selectors={selectors} onSelectorsChange={setSelectors} sourceUrl={url} />
           )}
 
-          {html && (
-            <div className="flex justify-end">
-              <Button onClick={goToStep2} disabled={isLoading} className="font-mono glow-green">
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => updateMutation.mutate()}
+              disabled={updateMutation.isPending}
+              className="font-mono glow-green"
+            >
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Update Feed
+            </Button>
+            {html && (
+              <Button variant="outline" onClick={goToStep2} disabled={isLoading} className="font-mono">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                 Next: Content
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

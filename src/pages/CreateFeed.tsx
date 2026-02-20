@@ -31,10 +31,10 @@ export default function CreateFeed() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveSelectorName, setSaveSelectorName] = useState("Default");
   const [selectedSavedSelectorId, setSelectedSavedSelectorId] = useState<string>("");
-  
+
   // Extract domain from URL
   const domain = url ? extractDomain(url) : "";
-  
+
   // Load saved selectors for the current domain
   const { data: savedSelectors = [] } = useQuery({
     queryKey: ['saved-selectors', domain],
@@ -80,7 +80,7 @@ export default function CreateFeed() {
     setContentSelector(saved.content_selector || "");
     setContentFormat(saved.content_format as "text" | "html");
     setSelectedSavedSelectorId(saved.id);
-    
+
     // If page hasn't been fetched yet, fetch it automatically
     if (!html && url) {
       setIsLoading(true);
@@ -97,7 +97,7 @@ export default function CreateFeed() {
         setIsLoading(false);
       }
     }
-    
+
     toast.success(`Loaded "${saved.name}" selectors`);
   };
 
@@ -125,7 +125,7 @@ export default function CreateFeed() {
       const doc = parser.parseFromString(html!, "text/html");
       const containers = selectors.container ? doc.querySelectorAll(selectors.container) : [];
       let firstLink = "";
-      
+
       if (containers.length > 0) {
         if (selectors.link) {
           // Link selector is specified
@@ -140,12 +140,12 @@ export default function CreateFeed() {
             firstLink = (container as HTMLAnchorElement).href || container.getAttribute("href") || "";
           }
         }
-        
+
         if (firstLink && !firstLink.startsWith("http")) {
           const base = new URL(url);
           firstLink = new URL(firstLink, base.origin).href;
         }
-        
+
         if (firstLink) {
           const res = await firecrawlApi.scrape(firstLink, { formats: ["html"], onlyMainContent: false });
           const rawHtml = res.data?.html || res.data?.data?.html;
@@ -215,7 +215,7 @@ export default function CreateFeed() {
                 placeholder="Feed name (optional)"
                 className="font-mono text-sm bg-background"
               />
-              
+
               {/* Saved Selectors */}
               {domain && (
                 <div className="space-y-2 pt-2 border-t border-border">
