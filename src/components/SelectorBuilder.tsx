@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MousePointer, Check, RotateCcw, TestTube } from "lucide-react";
+import { MousePointer, Check, RotateCcw, TestTube, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import type { ListSelectors, SelectorStep } from "@/types/feed";
 import { SELECTOR_STEPS } from "@/types/feed";
 
@@ -324,27 +331,114 @@ export function SelectorBuilder({ html, selectors, onSelectorsChange, sourceUrl 
           </CardHeader>
           <CardContent>
             {testResults.length > 0 ? (
-              <div className="overflow-auto max-h-[300px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {Object.keys(testResults[0]).map((key) => (
-                        <TableHead key={key} className="font-mono text-xs">{key}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {testResults.map((row, i) => (
-                      <TableRow key={i}>
-                        {Object.values(row).map((val, j) => (
-                          <TableCell key={j} className="font-mono text-xs max-w-[200px] truncate">
-                            {val}
-                          </TableCell>
+              <div className="rounded-md border border-border overflow-hidden">
+                <div className="overflow-auto max-h-[420px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-mono text-xs bg-muted/50 sticky top-0 z-10 min-w-[80px]">#</TableHead>
+                        {(Object.keys(testResults[0]) as (keyof typeof testResults[0])[]).map((key) => (
+                          <TableHead
+                            key={key}
+                            className="font-mono text-xs bg-muted/50 sticky top-0 z-10 whitespace-nowrap first:pl-4"
+                          >
+                            {key}
+                          </TableHead>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {testResults.map((row, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-mono text-xs text-muted-foreground align-top w-8">
+                            {i + 1}
+                          </TableCell>
+                          {(Object.keys(testResults[0]) as (keyof typeof testResults[0])[]).map((key) => {
+                            const val = row[key] ?? "";
+                            const isLink = key === "link";
+                            const isImage = key === "image";
+                            const isUrl = isLink || isImage;
+                            const displayVal = String(val).trim();
+                            const truncated = displayVal.length > 60 ? displayVal.slice(0, 57) + "…" : displayVal;
+                            return (
+                              <TableCell
+                                key={key}
+                                className="font-mono text-xs align-top py-2 px-3 max-w-[280px]"
+                              >
+                                {isUrl && displayVal ? (
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {isLink ? (
+                                      <a
+                                        href={displayVal}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline truncate flex-1 min-w-0 block"
+                                        title={displayVal}
+                                      >
+                                        {truncated}
+                                      </a>
+                                    ) : (
+                                      <span className="truncate block flex-1 min-w-0" title={displayVal}>
+                                        {truncated}
+                                      </span>
+                                    )}
+                                    <TooltipProvider delayDuration={300}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 shrink-0"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(displayVal);
+                                              toast.success("Copied to clipboard");
+                                            }}
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="font-mono text-xs max-w-sm break-all">
+                                          Copy URL
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    {isImage && displayVal && (
+                                      <a
+                                        href={displayVal}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="shrink-0 text-muted-foreground hover:text-primary"
+                                        title="Open image"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <TooltipProvider delayDuration={300}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className="line-clamp-3 break-words text-foreground"
+                                          title={displayVal}
+                                        >
+                                          {displayVal || "—"}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="font-mono text-xs max-w-sm break-words">
+                                        {displayVal || "—"}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground font-mono">No items extracted. Check your selectors.</p>

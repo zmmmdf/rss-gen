@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Copy, RefreshCw, Loader2, Rss, FileJson, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, Loader2, Rss, FileJson, FileSpreadsheet, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,16 +71,22 @@ export default function FeedDetail() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-mono font-bold">
-            <span className="text-primary">$</span> {feed.name}
-          </h1>
-          <p className="text-xs text-muted-foreground font-mono">{feed.source_url}</p>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-mono font-bold">
+              <span className="text-primary">$</span> {feed.name}
+            </h1>
+            <p className="text-xs text-muted-foreground font-mono">{feed.source_url}</p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/feed/${feed.id}/edit`)} className="font-mono">
+          <Pencil className="h-3 w-3 mr-1" />
+          Edit
+        </Button>
       </div>
 
       {/* Metadata */}

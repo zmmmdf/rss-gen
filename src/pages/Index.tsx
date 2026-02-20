@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, Rss, Copy, Trash2, ExternalLink, Clock, Hash } from "lucide-react";
+import { Plus, Rss, Copy, Trash2, ExternalLink, Clock, Hash, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getFeeds, deleteFeed, getFeedUrl } from "@/lib/api/feeds";
@@ -35,14 +35,22 @@ function FeedCard({ feed }: { feed: Feed }) {
             </Link>
             <p className="text-xs text-muted-foreground font-mono truncate mt-1">{feed.source_url}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-destructive shrink-0"
-            onClick={() => deleteMutation.mutate()}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Link to={`/feed/${feed.id}/edit`}>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" title="Edit feed">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => deleteMutation.mutate()}
+              title="Delete feed"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">

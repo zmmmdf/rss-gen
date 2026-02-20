@@ -1,24 +1,25 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Loader2, Globe, MousePointer, FileText, Save, BookOpen } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, Loader2, Globe, FileText, Save, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { createFeed } from "@/lib/api/feeds";
+import { getFeed, updateFeed } from "@/lib/api/feeds";
 import { firecrawlApi } from "@/lib/api/firecrawl";
 import { toast } from "sonner";
-import type { ListSelectors, SelectorStep } from "@/types/feed";
-import { SELECTOR_STEPS } from "@/types/feed";
+import type { ListSelectors } from "@/types/feed";
 import { SelectorBuilder } from "@/components/SelectorBuilder";
 import { ContentExtractor } from "@/components/ContentExtractor";
 import { getSavedSelectors, saveSelector, extractDomain, type SavedSelector } from "@/lib/api/saved-selectors";
 
-export default function CreateFeed() {
+export default function EditFeed() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<1 | 2>(1);
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -31,31 +32,75 @@ export default function CreateFeed() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveSelectorName, setSaveSelectorName] = useState("Default");
   const [selectedSavedSelectorId, setSelectedSavedSelectorId] = useState<string>("");
-  
-  // Extract domain from URL
+  const [initialized, setInitialized] = useState(false);
+  const [pageFetchedForEdit, setPageFetchedForEdit] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   const domain = url ? extractDomain(url) : "";
-  
-  // Load saved selectors for the current domain
+
+  const { data: feed, isLoading: feedLoading } = useQuery({
+    queryKey: ["feed", id],
+    queryFn: () => getFeed(id!),
+    enabled: !!id,
+  });
+
   const { data: savedSelectors = [] } = useQuery({
-    queryKey: ['saved-selectors', domain],
+    queryKey: ["saved-selectors", domain],
     queryFn: () => getSavedSelectors(domain),
     enabled: !!domain,
   });
 
-  const saveMutation = useMutation({
+  // Fill form from feed when loaded
+  useEffect(() => {
+    if (feed && !initialized) {
+      setUrl(feed.source_url);
+      setName(feed.name);
+      setSelectors(feed.list_selectors || {});
+      setContentSelector(feed.content_selector || "");
+      setContentFormat((feed.content_format as "text" | "html") || "text");
+      setInitialized(true);
+    }
+  }, [feed, initialized]);
+
+  // Auto-fetch page HTML when editing so preview and selectors are visible
+  useEffect(() => {
+    if (!feed?.source_url || !initialized || pageFetchedForEdit) return;
+    let cancelled = false;
+    setPageFetchedForEdit(true);
+    setLoadingPreview(true);
+    (async () => {
+      try {
+        const res = await firecrawlApi.scrape(feed.source_url, { formats: ["html"], onlyMainContent: false });
+        const rawHtml = res.data?.html || res.data?.data?.html;
+        if (!cancelled && rawHtml) setHtml(rawHtml);
+      } catch (e) {
+        if (!cancelled) toast.error((e as Error)?.message || "Failed to load page preview");
+      } finally {
+        if (!cancelled) setLoadingPreview(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      setLoadingPreview(false);
+    };
+  }, [feed?.source_url, initialized, pageFetchedForEdit]);
+
+  const updateMutation = useMutation({
     mutationFn: () =>
-      createFeed({
+      updateFeed(id!, {
         name: name || new URL(url).hostname,
         source_url: url,
         list_selectors: selectors,
-        content_selector: contentSelector || undefined,
+        content_selector: contentSelector || null,
         content_format: contentFormat,
       }),
-    onSuccess: (feed) => {
-      toast.success("Feed created!");
-      navigate(`/feed/${feed.id}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feed", id] });
+      queryClient.invalidateQueries({ queryKey: ["feeds"] });
+      toast.success("Feed updated!");
+      navigate(`/feed/${id}`);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const saveSelectorMutation = useMutation({
@@ -75,13 +120,10 @@ export default function CreateFeed() {
   });
 
   const loadSavedSelector = async (saved: SavedSelector) => {
-    // Load the selectors
     setSelectors(saved.list_selectors);
     setContentSelector(saved.content_selector || "");
     setContentFormat(saved.content_format as "text" | "html");
     setSelectedSavedSelectorId(saved.id);
-    
-    // If page hasn't been fetched yet, fetch it automatically
     if (!html && url) {
       setIsLoading(true);
       try {
@@ -97,7 +139,6 @@ export default function CreateFeed() {
         setIsLoading(false);
       }
     }
-    
     toast.success(`Loaded "${saved.name}" selectors`);
   };
 
@@ -118,34 +159,25 @@ export default function CreateFeed() {
   };
 
   const goToStep2 = async () => {
-    // Try to fetch the first post's link for content extraction
     setIsLoading(true);
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html!, "text/html");
       const containers = selectors.container ? doc.querySelectorAll(selectors.container) : [];
       let firstLink = "";
-      
       if (containers.length > 0) {
         if (selectors.link) {
-          // Link selector is specified
           const linkEl = containers[0].querySelector(selectors.link);
-          if (linkEl) {
-            firstLink = linkEl.getAttribute("href") || "";
-          }
+          if (linkEl) firstLink = linkEl.getAttribute("href") || "";
         } else {
-          // No link selector - check if container itself is an anchor tag
           const container = containers[0];
-          if (container.tagName === 'A' || container.tagName === 'a') {
+          if (container.tagName === "A" || container.tagName === "a") {
             firstLink = (container as HTMLAnchorElement).href || container.getAttribute("href") || "";
           }
         }
-        
         if (firstLink && !firstLink.startsWith("http")) {
-          const base = new URL(url);
-          firstLink = new URL(firstLink, base.origin).href;
+          firstLink = new URL(firstLink, new URL(url).origin).href;
         }
-        
         if (firstLink) {
           const res = await firecrawlApi.scrape(firstLink, { formats: ["html"], onlyMainContent: false });
           const rawHtml = res.data?.html || res.data?.data?.html;
@@ -153,22 +185,30 @@ export default function CreateFeed() {
         }
       }
     } catch {
-      // If content page fails, still allow step 2 without it
+      /* noop */
     } finally {
       setIsLoading(false);
     }
     setStep(2);
   };
 
+  if (feedLoading || !feed) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/feed/${id}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl font-mono font-bold">
-            <span className="text-primary">$</span> new-feed
+            <span className="text-primary">$</span> edit-feed
           </h1>
           <p className="text-sm text-muted-foreground">
             Step {step} of 2 — {step === 1 ? "Source & Selectors" : "Content Extraction"}
@@ -176,20 +216,26 @@ export default function CreateFeed() {
         </div>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2 mb-6">
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${step === 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+        <div
+          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${
+            step === 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+          }`}
+        >
           <Globe className="h-3 w-3" /> Source & Selectors
         </div>
         <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${step === 2 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+        <div
+          className={`flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs ${
+            step === 2 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+          }`}
+        >
           <FileText className="h-3 w-3" /> Content
         </div>
       </div>
 
       {step === 1 ? (
         <div className="space-y-4">
-          {/* URL Input */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-mono flex items-center gap-2">
@@ -215,8 +261,6 @@ export default function CreateFeed() {
                 placeholder="Feed name (optional)"
                 className="font-mono text-sm bg-background"
               />
-              
-              {/* Saved Selectors */}
               {domain && (
                 <div className="space-y-2 pt-2 border-t border-border">
                   {savedSelectors.length > 0 ? (
@@ -228,10 +272,8 @@ export default function CreateFeed() {
                       <Select
                         value={selectedSavedSelectorId}
                         onValueChange={(value) => {
-                          const saved = savedSelectors.find(s => s.id === value);
-                          if (saved) {
-                            loadSavedSelector(saved);
-                          }
+                          const saved = savedSelectors.find((s) => s.id === value);
+                          if (saved) loadSavedSelector(saved);
                         }}
                       >
                         <SelectTrigger className="font-mono text-xs bg-secondary">
@@ -257,29 +299,32 @@ export default function CreateFeed() {
             </CardContent>
           </Card>
 
-          {/* Selector Builder */}
+          {loadingPreview && !html && (
+            <Card className="bg-card border-border overflow-hidden">
+              <div className="bg-secondary px-3 py-2 border-b border-border">
+                <span className="text-xs font-mono text-muted-foreground">Preview</span>
+              </div>
+              <CardContent className="flex items-center justify-center py-16">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground font-mono text-sm">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span>Loading page preview…</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {html && (
             <>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono text-muted-foreground">Configure selectors</span>
                 {domain && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSaveDialog(true)}
-                    className="font-mono text-xs"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} className="font-mono text-xs">
                     <Save className="h-3 w-3 mr-1" />
                     Save Selectors
                   </Button>
                 )}
               </div>
-              <SelectorBuilder
-                html={html}
-                selectors={selectors}
-                onSelectorsChange={setSelectors}
-                sourceUrl={url}
-              />
+              <SelectorBuilder html={html} selectors={selectors} onSelectorsChange={setSelectors} sourceUrl={url} />
             </>
           )}
 
@@ -308,30 +353,24 @@ export default function CreateFeed() {
                 <ArrowLeft className="h-4 w-4 mr-1" /> Back
               </Button>
               {domain && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSaveDialog(true)}
-                  className="font-mono text-xs"
-                >
+                <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} className="font-mono text-xs">
                   <Save className="h-3 w-3 mr-1" />
                   Save Selectors (incl. content)
                 </Button>
               )}
             </div>
             <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
+              onClick={() => updateMutation.mutate()}
+              disabled={updateMutation.isPending}
               className="font-mono glow-green"
             >
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Save Feed
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Update Feed
             </Button>
           </div>
         </div>
       )}
 
-      {/* Save Selector Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <DialogContent className="font-mono">
           <DialogHeader>
@@ -342,9 +381,11 @@ export default function CreateFeed() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="selector-name" className="text-xs">Template Name</Label>
+              <Label htmlFor="selector-name-edit" className="text-xs">
+                Template Name
+              </Label>
               <Input
-                id="selector-name"
+                id="selector-name-edit"
                 value={saveSelectorName}
                 onChange={(e) => setSaveSelectorName(e.target.value)}
                 placeholder="Default"
@@ -353,11 +394,7 @@ export default function CreateFeed() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowSaveDialog(false)}
-              className="font-mono text-xs"
-            >
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)} className="font-mono text-xs">
               Cancel
             </Button>
             <Button

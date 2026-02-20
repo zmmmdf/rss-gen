@@ -36,6 +36,26 @@ export async function createFeed(feed: {
   return data as any;
 }
 
+export async function updateFeed(
+  id: string,
+  updates: {
+    name?: string;
+    source_url?: string;
+    list_selectors?: ListSelectors;
+    content_selector?: string | null;
+    content_format?: string;
+  }
+): Promise<Feed> {
+  const { data, error } = await supabase
+    .from('feeds')
+    .update(updates as any)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as any;
+}
+
 export async function deleteFeed(id: string): Promise<void> {
   const { error } = await supabase.from('feeds').delete().eq('id', id);
   if (error) throw error;
