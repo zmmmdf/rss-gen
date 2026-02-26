@@ -1,5 +1,39 @@
+# ===========================
+# Dependencies
+# ===========================
+node_modules/
+.pnp
+.pnp.js
+
+# ===========================
+# Build output
+# ===========================
+dist/
+dist-ssr/
+build/
+out/
+.output/
+
+# ===========================
+# Environment & secrets
+# ===========================
+.env
+.env.*
+!.env.example
+*.local
+
+# ===========================
+# Supabase
+# ===========================
+supabase/.temp/
+supabase/.temp*/
+supabase/.branches/
+supabase/functions/.cache/
+
+# ===========================
 # Logs
-logs
+# ===========================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,23 +41,52 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ===========================
+# Vite
+# ===========================
+*.timestamp-*.mjs
+vite.config.ts.timestamp-*
 
-# Editor directories and files
+# ===========================
+# TypeScript
+# ===========================
+*.tsbuildinfo
+
+# ===========================
+# Testing
+# ===========================
+coverage/
+.vitest/
+
+# ===========================
+# OS files
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===========================
+# Editors & IDEs
+# ===========================
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
-.env.local
-.git-rewrite
-supabase/.temp
-supabase/.temp 2
+*.swp
+*.swo
+*.bak
+
+# ===========================
+# Git
+# ===========================
+.git-rewrite/
