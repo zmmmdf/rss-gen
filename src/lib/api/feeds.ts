@@ -27,9 +27,15 @@ export async function createFeed(feed: {
   content_selector?: string;
   content_format?: string;
 }): Promise<Feed> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+
   const { data, error } = await supabase
     .from('feeds')
-    .insert(feed as any)
+    .insert({
+      ...feed,
+      user_id: userData.user.id,
+    } as any)
     .select()
     .single();
   if (error) throw error;
@@ -62,6 +68,6 @@ export async function deleteFeed(id: string): Promise<void> {
 }
 
 export function getFeedUrl(feedId: string, format: 'xml' | 'json' | 'csv'): string {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  return `https://${projectId}.supabase.co/functions/v1/generate-feed?id=${feedId}&format=${format}`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/generate-feed?id=${feedId}&format=${format}`;
 }

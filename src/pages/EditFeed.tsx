@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Loader2, Globe, FileText, Save, BookOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Globe, FileText, Save, BookOpen, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { SELECTOR_STEPS } from "@/types/feed";
 import { SelectorBuilder } from "@/components/SelectorBuilder";
 import { ContentExtractor } from "@/components/ContentExtractor";
 import { getSavedSelectors, saveSelector, extractDomain, type SavedSelector } from "@/lib/api/saved-selectors";
+import { LivePreviewModal } from "@/components/LivePreviewModal";
 
 export default function EditFeed() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function EditFeed() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<1 | 2>(1);
   const [url, setUrl] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const [name, setName] = useState("");
   const [html, setHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -217,14 +219,24 @@ export default function EditFeed() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={() => updateMutation.mutate()}
-          disabled={updateMutation.isPending}
-          className="font-mono glow-green"
-        >
-          {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-          Update Feed
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowPreview(true)}
+            className="font-mono text-xs"
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Live Preview
+          </Button>
+          <Button
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending}
+            className="font-mono glow-orange"
+          >
+            {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Update Feed
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mb-6">
@@ -392,9 +404,17 @@ export default function EditFeed() {
 
           <div className="flex justify-end gap-2">
             <Button
+              variant="outline"
+              onClick={() => setShowPreview(true)}
+              className="font-mono text-xs h-9"
+            >
+              <Play className="h-3 w-3 mr-1" />
+              Live Preview
+            </Button>
+            <Button
               onClick={() => updateMutation.mutate()}
               disabled={updateMutation.isPending}
-              className="font-mono glow-green"
+              className="font-mono glow-orange"
             >
               {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Update Feed
@@ -429,14 +449,24 @@ export default function EditFeed() {
                 </Button>
               )}
             </div>
-            <Button
-              onClick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending}
-              className="font-mono glow-green"
-            >
-              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Update Feed
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="font-mono text-xs h-9"
+              >
+                <Play className="h-3 w-3 mr-1" />
+                Live Preview
+              </Button>
+              <Button
+                onClick={() => updateMutation.mutate()}
+                disabled={updateMutation.isPending}
+                className="font-mono glow-orange"
+              >
+                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Update Feed
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -482,6 +512,18 @@ export default function EditFeed() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LivePreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        feedConfig={{
+          name: name || (url ? new URL(url).hostname : "Live Preview"),
+          source_url: url,
+          list_selectors: selectors,
+          content_selector: contentSelector || undefined,
+          content_format: contentFormat,
+        }}
+      />
     </div>
   );
 }

@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
   try {
     let feedId: string | null = null;
     let format = 'xml';
+    let previewConfig: any = null;
 
     // Support both GET query params and POST body
     if (req.method === 'GET') {
@@ -81,11 +82,12 @@ Deno.serve(async (req) => {
       const body = await req.json();
       feedId = body.id;
       format = body.format || 'xml';
+      previewConfig = body.preview;
     }
 
-    if (!feedId) {
+    if (!feedId && !previewConfig) {
       return new Response(
-        JSON.stringify({ error: 'Feed ID is required' }),
+        JSON.stringify({ error: 'Feed ID or preview config is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -94,17 +96,26 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: feed, error: feedError } = await supabase
-      .from('feeds')
-      .select('*')
-      .eq('id', feedId)
-      .single();
+    let feed: any = null;
 
-    if (feedError || !feed) {
-      return new Response(
-        JSON.stringify({ error: 'Feed not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (previewConfig) {
+      feed = previewConfig;
+      // Provide a proxy name if none
+      if (!feed.name) feed.name = 'Live Preview';
+    } else {
+      const { data: feedData, error: feedError } = await supabase
+        .from('feeds')
+        .select('*')
+        .eq('id', feedId)
+        .single();
+
+      if (feedError || !feedData) {
+        return new Response(
+          JSON.stringify({ error: 'Feed not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      feed = feedData;
     }
 
     // Scrape the source page
@@ -174,28 +185,34 @@ Deno.serve(async (req) => {
           const el = container.querySelector(selectors.date);
           if (el) item.date = el.textContent?.trim() || '';
         }
+        let linkEl: any = null;
         if (selectors.link) {
-          const el = container.querySelector(selectors.link);
-          if (el) {
-            let href = el.getAttribute('href') || '';
-            // If element itself doesn't have href, check if it IS an anchor or walk up to find one
-            if (!href) {
-              const anchor = el.tagName?.toUpperCase() === 'A' ? el : el.closest?.('a') || el.querySelector?.('a');
-              if (anchor) {
-                href = anchor.getAttribute('href') || '';
-              }
-            }
-            if (href && !href.startsWith('http')) {
-              try {
-                href = new URL(href, feed.source_url).href;
-              } catch { }
-            }
-            item.link = href;
+          if (typeof container.matches === 'function' && container.matches(selectors.link)) {
+            linkEl = container;
+          } else {
+            linkEl = container.querySelector(selectors.link);
           }
+        }
+
+        if (linkEl) {
+          let href = linkEl.getAttribute('href');
+          if (!href) {
+            const aTag = (linkEl.tagName || '').toUpperCase() === 'A' ? linkEl : linkEl.querySelector('a');
+            if (aTag) href = aTag.getAttribute('href');
+          }
+          href = href || '';
+
+          if (href && !href.startsWith('http')) {
+            try {
+              href = new URL(href, feed.source_url).href;
+            } catch { } // fallback to relative
+          }
+          item.link = href;
         } else {
-          // If no link selector, check if container itself is an anchor tag
-          if (container.tagName === 'A' || container.tagName === 'a') {
-            let href = container.getAttribute('href') || '';
+          // If no link selector, find the first anchor tag inside the container
+          const aTag = (container.tagName || '').toUpperCase() === 'A' ? container : container.querySelector('a');
+          if (aTag) {
+            let href = aTag.getAttribute('href') || '';
             if (href && !href.startsWith('http')) {
               try {
                 href = new URL(href, feed.source_url).href;
@@ -228,6 +245,7 @@ Deno.serve(async (req) => {
             }
           }
         }
+
         if (selectors.image) {
           const el = container.querySelector(selectors.image);
           if (el) {
@@ -247,11 +265,59 @@ Deno.serve(async (req) => {
       }
     }
 
+    // If we have a content_selector, fetch the content for each item
+    if (feed.content_selector && items.length > 0) {
+      // Limit to top 10 items to avoid edge function timeouts and rate limits
+      const itemsToFetch = items.slice(0, 10);
+
+      await Promise.all(itemsToFetch.map(async (item) => {
+        if (!item.link) return;
+
+        try {
+          const contentRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: item.link,
+              formats: ['html'],
+              onlyMainContent: false,
+            }),
+          });
+
+          if (contentRes.ok) {
+            const data = await contentRes.json();
+            const itemHtml = data?.data?.html || data?.html || '';
+
+            if (itemHtml) {
+              const { document: itemDoc } = parseHTML(itemHtml);
+              const contentEl = itemDoc.querySelector(feed.content_selector);
+
+              if (contentEl) {
+                // Respect content_format (text vs html)
+                if (feed.content_format === 'html') {
+                  item.content = contentEl.innerHTML;
+                } else {
+                  item.content = contentEl.textContent?.trim() || '';
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch content for ${item.link}:`, err);
+        }
+      }));
+    }
+
     // Update feed stats
-    await supabase.from('feeds').update({
-      item_count: items.length,
-      last_scraped_at: new Date().toISOString(),
-    }).eq('id', feedId);
+    if (feedId) {
+      await supabase.from('feeds').update({
+        item_count: items.length,
+        last_scraped_at: new Date().toISOString(),
+      }).eq('id', feedId);
+    }
 
     // Return formatted output
     if (format === 'json') {

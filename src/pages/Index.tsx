@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, Rss, Copy, Trash2, ExternalLink, Clock, Hash, Pencil } from "lucide-react";
+import { Plus, Rss, Copy, Trash2, ExternalLink, Clock, Hash, Pencil, CopyPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getFeeds, deleteFeed, getFeedUrl } from "@/lib/api/feeds";
+import { getFeeds, deleteFeed, getFeedUrl, createFeed } from "@/lib/api/feeds";
 import { toast } from "sonner";
 import type { Feed } from "@/types/feed";
 import { formatDistanceToNow } from "date-fns";
@@ -16,6 +16,22 @@ function FeedCard({ feed }: { feed: Feed }) {
       queryClient.invalidateQueries({ queryKey: ["feeds"] });
       toast.success("Feed deleted");
     },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: () =>
+      createFeed({
+        name: `${feed.name} (copy)`,
+        source_url: feed.source_url,
+        list_selectors: feed.list_selectors,
+        content_selector: feed.content_selector || undefined,
+        content_format: feed.content_format,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] });
+      toast.success("Feed duplicated");
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to duplicate feed"),
   });
 
   const copyUrl = (format: "xml" | "json" | "csv") => {
@@ -36,6 +52,16 @@ function FeedCard({ feed }: { feed: Feed }) {
             <p className="text-xs text-muted-foreground font-mono truncate mt-1">{feed.source_url}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => duplicateMutation.mutate()}
+              title="Duplicate feed"
+              disabled={duplicateMutation.isPending}
+            >
+              {duplicateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyPlus className="h-4 w-4" />}
+            </Button>
             <Link to={`/feed/${feed.id}/edit`}>
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" title="Edit feed">
                 <Pencil className="h-4 w-4" />
@@ -105,7 +131,7 @@ export default function Index() {
           <p className="text-sm text-muted-foreground mt-1">Manage your RSS feed generators</p>
         </div>
         <Link to="/create">
-          <Button className="font-mono glow-green">
+          <Button className="font-mono glow-orange">
             <Plus className="h-4 w-4 mr-1" />
             New Feed
           </Button>
@@ -135,7 +161,7 @@ export default function Index() {
               Create your first RSS feed by scraping a website
             </p>
             <Link to="/create">
-              <Button className="font-mono glow-green">
+              <Button className="font-mono glow-orange">
                 <Plus className="h-4 w-4 mr-1" />
                 Create Feed
               </Button>

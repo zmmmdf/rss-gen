@@ -15,7 +15,7 @@
     --popover: 220 18% 10%;
     --popover-foreground: 210 20% 92%;
 
-    --primary: 142 72% 50%;
+    --primary: 24 90% 55%;
     --primary-foreground: 220 20% 7%;
 
     --secondary: 220 16% 16%;
@@ -24,7 +24,7 @@
     --muted: 220 14% 14%;
     --muted-foreground: 215 14% 50%;
 
-    --accent: 142 72% 50%;
+    --accent: 24 90% 55%;
     --accent-foreground: 220 20% 7%;
 
     --destructive: 0 72% 55%;
@@ -32,21 +32,21 @@
 
     --border: 220 14% 18%;
     --input: 220 14% 18%;
-    --ring: 142 72% 50%;
+    --ring: 24 90% 55%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 220 20% 5%;
     --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 142 72% 50%;
+    --sidebar-primary: 24 90% 55%;
     --sidebar-primary-foreground: 220 20% 7%;
     --sidebar-accent: 220 16% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 220 14% 14%;
-    --sidebar-ring: 142 72% 50%;
+    --sidebar-ring: 24 90% 55%;
 
-    --terminal: 142 72% 50%;
-    --terminal-dim: 142 40% 35%;
+    --terminal: 24 90% 55%;
+    --terminal-dim: 24 40% 35%;
     --warning: 38 92% 50%;
     --info: 210 100% 56%;
   }
@@ -61,7 +61,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 142 72% 50%;
+    --primary: 24 90% 55%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 10% 96%;
@@ -70,7 +70,7 @@
     --muted: 220 10% 96%;
     --muted-foreground: 220 10% 50%;
 
-    --accent: 142 72% 50%;
+    --accent: 24 90% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 55%;
@@ -78,19 +78,19 @@
 
     --border: 220 10% 90%;
     --input: 220 10% 90%;
-    --ring: 142 72% 50%;
+    --ring: 24 90% 55%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 220 20% 20%;
-    --sidebar-primary: 142 72% 50%;
+    --sidebar-primary: 24 90% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 10% 96%;
     --sidebar-accent-foreground: 220 20% 10%;
     --sidebar-border: 220 10% 90%;
-    --sidebar-ring: 142 72% 50%;
+    --sidebar-ring: 24 90% 55%;
 
-    --terminal: 142 72% 50%;
-    --terminal-dim: 142 40% 35%;
+    --terminal: 24 90% 55%;
+    --terminal-dim: 24 40% 35%;
     --warning: 38 92% 50%;
     --info: 210 100% 56%;
   }
@@ -138,6 +138,6 @@
 }
 
 /* Glow effects */
-.glow-green {
-  box-shadow: 0 0 20px -5px hsl(142 72% 50% / 0.3);
+.glow-orange {
+  box-shadow: 0 0 20px -5px hsl(24 90% 55% / 0.3);
 }

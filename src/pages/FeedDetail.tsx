@@ -1,26 +1,48 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Copy, RefreshCw, Loader2, Rss, FileJson, FileSpreadsheet, Pencil } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Copy, Loader2, Rss, FileJson, FileSpreadsheet, Pencil, TestTube, MousePointer, CopyPlus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getFeed, getFeedUrl } from "@/lib/api/feeds";
+import { getFeed, getFeedUrl, createFeed } from "@/lib/api/feeds";
 import { toast } from "sonner";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { SELECTOR_STEPS } from "@/types/feed";
 
 export default function FeedDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [previewData, setPreviewData] = useState<Record<string, string | null>>({});
   const [loadingFormat, setLoadingFormat] = useState<string | null>(null);
+  const [activeFormat, setActiveFormat] = useState<"xml" | "json" | "csv">("xml");
 
   const { data: feed, isLoading } = useQuery({
     queryKey: ["feed", id],
     queryFn: () => getFeed(id!),
     enabled: !!id,
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: () => {
+      if (!feed) throw new Error("Feed not loaded");
+      return createFeed({
+        name: `${feed.name} (copy)`,
+        source_url: feed.source_url,
+        list_selectors: feed.list_selectors || {},
+        content_selector: feed.content_selector || undefined,
+        content_format: feed.content_format || "text",
+      });
+    },
+    onSuccess: (newFeed) => {
+      queryClient.invalidateQueries({ queryKey: ["feeds"] });
+      toast.success("Feed duplicated");
+      navigate(`/feed/${newFeed.id}`);
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to duplicate feed"),
   });
 
   const copyUrl = (format: "xml" | "json" | "csv") => {
@@ -47,6 +69,10 @@ export default function FeedDetail() {
     }
   };
 
+  const runLiveTest = () => {
+    fetchPreview(activeFormat);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -69,6 +95,8 @@ export default function FeedDetail() {
     { key: "csv" as const, label: "CSV", icon: FileSpreadsheet },
   ];
 
+  const selectorEntries = SELECTOR_STEPS.filter(s => (feed.list_selectors as any)?.[s.key]);
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-6">
@@ -83,10 +111,31 @@ export default function FeedDetail() {
             <p className="text-xs text-muted-foreground font-mono">{feed.source_url}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate(`/feed/${feed.id}/edit`)} className="font-mono">
-          <Pencil className="h-3 w-3 mr-1" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={runLiveTest}
+            disabled={loadingFormat !== null}
+            className="font-mono glow-orange"
+          >
+            {loadingFormat ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <TestTube className="h-4 w-4 mr-1" />}
+            Live Test
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => duplicateMutation.mutate()}
+            disabled={duplicateMutation.isPending}
+            className="font-mono"
+            title="Duplicate feed"
+          >
+            {duplicateMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CopyPlus className="h-3 w-3 mr-1" />}
+            Duplicate
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/feed/${feed.id}/edit`)} className="font-mono">
+            <Pencil className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* Metadata */}

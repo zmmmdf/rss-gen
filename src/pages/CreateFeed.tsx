@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Loader2, Globe, MousePointer, FileText, Save, BookOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Globe, MousePointer, FileText, Save, BookOpen, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { SELECTOR_STEPS } from "@/types/feed";
 import { SelectorBuilder } from "@/components/SelectorBuilder";
 import { ContentExtractor } from "@/components/ContentExtractor";
 import { getSavedSelectors, saveSelector, extractDomain, type SavedSelector } from "@/lib/api/saved-selectors";
+import { LivePreviewModal } from "@/components/LivePreviewModal";
 
 export default function CreateFeed() {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ export default function CreateFeed() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveSelectorName, setSaveSelectorName] = useState("Default");
   const [selectedSavedSelectorId, setSelectedSavedSelectorId] = useState<string>("");
+  const [showPreview, setShowPreview] = useState(false);
 
   // Extract domain from URL
   const domain = url ? extractDomain(url) : "";
@@ -284,8 +286,16 @@ export default function CreateFeed() {
           )}
 
           {html && (
-            <div className="flex justify-end">
-              <Button onClick={goToStep2} disabled={isLoading} className="font-mono glow-green">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="font-mono text-xs"
+              >
+                <Play className="h-3 w-3 mr-1" />
+                Live Preview
+              </Button>
+              <Button onClick={goToStep2} disabled={isLoading} className="font-mono Disabled glow-green class in file contents.">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                 Next: Content
                 <ArrowRight className="h-4 w-4 ml-1" />
@@ -315,18 +325,28 @@ export default function CreateFeed() {
                   className="font-mono text-xs"
                 >
                   <Save className="h-3 w-3 mr-1" />
-                  Save Selectors (incl. content)
+                  Save Template
                 </Button>
               )}
             </div>
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="font-mono glow-green"
-            >
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Save Feed
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="font-mono text-xs"
+              >
+                <Play className="h-3 w-3 mr-1" />
+                Live Preview
+              </Button>
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="font-mono Disabled glow-green class in file contents."
+              >
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Save Feed
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -375,6 +395,18 @@ export default function CreateFeed() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LivePreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        feedConfig={{
+          name: name || new URL(url || "https://example.com").hostname,
+          source_url: url,
+          list_selectors: selectors,
+          content_selector: contentSelector || undefined,
+          content_format: contentFormat,
+        }}
+      />
     </div>
   );
 }

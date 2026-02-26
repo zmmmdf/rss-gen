@@ -38,6 +38,9 @@ export async function saveSelector(selector: {
   content_selector?: string;
   content_format?: string;
 }): Promise<SavedSelector> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+
   const { data, error } = await supabase
     .from('saved_selectors')
     .upsert(
@@ -47,7 +50,8 @@ export async function saveSelector(selector: {
         list_selectors: selector.list_selectors,
         content_selector: selector.content_selector || null,
         content_format: selector.content_format || 'text',
-      },
+        user_id: userData.user.id,
+      } as any,
       {
         onConflict: 'domain,name',
       }

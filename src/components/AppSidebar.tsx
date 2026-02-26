@@ -1,4 +1,4 @@
-import { Rss, Plus, Terminal } from "lucide-react";
+import { Rss, Plus, Terminal, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -10,7 +10,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const items = [
   { title: "Feeds", url: "/", icon: Rss },
@@ -18,6 +23,19 @@ const items = [
 ];
 
 export function AppSidebar() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/auth');
+    } catch (error: any) {
+      toast.error(error.message || "Error signing out");
+    }
+  };
+
   return (
     <Sidebar className="border-r border-border">
       <SidebarHeader className="p-4 border-b border-border">
@@ -53,6 +71,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4 border-t border-border">
+        <div className="flex flex-col space-y-4">
+          {user && (
+            <div className="text-sm truncate text-muted-foreground">
+              {user.email}
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }
