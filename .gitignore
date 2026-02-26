@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 .env.local
+.git-rewrite
+supabase/.temp
+supabase/.temp 2
